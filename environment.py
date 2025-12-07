@@ -5,19 +5,18 @@ import gymnasium
 from gymnasium import spaces
 from collections import deque
 
-def increment(xy_list, size):
-    #x = xy_list[0], y = xy_list[0]
-    #całe zamieszanie z listą jest po to aby modyfikować zmienne, a nie ich kopie
-    if xy_list[0] < size:
-        xy_list[0] += 1
-    elif xy_list[0] == size:
-        xy_list[0] = 1
-        xy_list[1] += 1
+def increment(x, y, size):
+    if x < size:
+        x += 1
+    elif x == size:
+        x = 1
+        y += 1
+    return x, y
 
 class SnakeGame:
     def __init__(self, grid_size):
         self.grid_size = grid_size
-        self.snake_positions = np.zeros((self.grid_size+2 , self.grid_size+2))
+        self.snake_positions = np.ones((self.grid_size+2 , self.grid_size+2))
         self.snake_body = deque()
         self.snake_direction = 0
         self.x_food = -1
@@ -27,35 +26,52 @@ class SnakeGame:
 
     def new_round(self):
 
-        self.snake_positions = np.zeros((self.grid_size+2, self.grid_size+2))
+        self.snake_positions = np.ones((self.grid_size+2, self.grid_size+2))
+        self.snake_positions[1:self.grid_size+1,1:self.grid_size+1] = 0
         self.snake_body.clear()
         x_start, y_start = random.randint(1,self.grid_size), random.randint(1,self.grid_size)
         self.snake_body.appendleft((x_start, y_start))
-        self.snake_positions[x_start, y_start] = 1  
-        snake_direction = random.randint(0,3)
-        #format of the direction 0: down, 1: left, 2: up, 3: right
-        self.snake_direction = np.zeros((4))
-        self.snake_direction[snake_direction] = 1
+        self.snake_positions[x_start, y_start] = 1
+        #format of the direction 0: down, 1: right, 2: up, 3: left
+        self.snake_direction = random.randint(0,3)
         self.spawn_food()
 
-    def step(self, action):
-        #I assume that the action is one hot encoded left -> 0 forward -> 1 right -> 2
-        self.snake_direction = (self.snake_direction + action - 1) % 4
+    def next_position(self, direction):
         x_head, y_head = self.snake_body[0]
-        if self.snake_direction % 2 == 0:
-            y_head += self.snake_direction -1
-        elif self.snake_direction % 2 == 1:
-            x_head += self.snake_direction - 2
+        if direction % 2 == 0:
+            y_head -= direction - 1
+        elif direction % 2 == 1:
+            x_head -= direction - 2
+        return x_head, y_head
+    
+
+    def is_danger(self, x, y):
+        is_head_there = (self.snake_body[0] == (x,y))
+        is_tail_there = (self.snake_body[-1] == (x, y))
+        xy_danger = self.snake_positions[x, y]
+        if is_head_there:
+            return (1 == (xy_danger - is_head_there))
+        elif is_tail_there:
+            return False
+        else:
+            return xy_danger
+
+    def step(self, action):
+        #I assume that the action is encoded with left -> 0 forward -> 1 right -> 2
+        self.snake_direction = (self.snake_direction - action + 1) % 4
+        x_head, y_head = self.next_position(self.snake_direction)
         if x_head == self.x_food and y_head == self.y_food:
             self.snake_body.appendleft((x_head , y_head))
             self.snake_positions[x_head, y_head] += 1
             self.spawn_food()
+            return True
         else:
             x_tail, y_tail = self.snake_body.pop()
             self.snake_positions[x_tail, y_tail] -= 1  
             self.snake_body.appendleft((x_head , y_head))
             self.snake_positions[x_head, y_head] += 1
-                
+            return False
+
     def spawn_food(self):
         num_ocupied = np.sum(self.snake_positions)
         where_apple = random.randint(1, self.grid_size**2 - num_ocupied)
@@ -71,21 +87,28 @@ class SnakeGame:
                     break
                 else:
                     zero_idx += 1
-                    increment([x_current, y_current], self.grid_size)
+                    x_current, y_current = increment(x_current, y_current, self.grid_size)
             else:
-                increment([x_current, y_current], self.grid_size)               
+                x_current, y_current = increment(x_current, y_current, self.grid_size)               
 
     def get_state(self):
-        pass
+        #state is described by [is_down, is_left, is_up, is_right,
+        #                       danger_left?, danger_forward?, danger_right?,
+        #                       food_up?, food_down?, food_right? food_left?]
+        state_arr = np.zeros((11))
+        state_arr[self.snake_direction] = 1
+        state_arr[4:7] = [self.is_danger(*self.next_position((self.snake_direction - i + 1) % 4)) for i in range(3)]
+        x_head,y_head = self.snake_body[0]
+        x_food, y_food = self.x_food, self.y_food
+        food_down = (y_head < y_food)
+        food_up = (y_head > y_food)
+        food_left = (x_head > x_food)
+        food_right = (x_head < x_food)
+        state_arr[7:11] = [food_up, food_down, food_right, food_left]
+        return state_arr
+
     def is_collision(self):
-        x_head, y_head = self.snake_body[0]
-        p_min, p_max = min(x_head, y_head), min(x_head, y_head)
-        if self.snake_positions[x_head, y_head] == 2:
-            return True
-        elif p_min == 0 or p_max == self.grid_size +1:
-            return True
-        else:
-            return False
+        return self.is_danger(*self.snake_body[0])
 
 class SnakeEnv(gymnasium.Env):
     metadata = {
@@ -93,8 +116,9 @@ class SnakeEnv(gymnasium.Env):
         "fps": ["30"],
     }
 
-    def __init__(self, render_mode, size):
+    def __init__(self, render_mode, size, cell_size):
         self.size = size
+        self.CELL = cell_size
         self.render_mode = render_mode
 
         self.Engine = SnakeGame(size)
@@ -106,4 +130,77 @@ class SnakeEnv(gymnasium.Env):
                 'food': spaces.MultiBinary(4),
             }
         )
+        #rendering configuration
+        self.window = None
+        self.clock = None
+        self.window_size = self.CELL * self.size
 
+    def reset(self, seed = None, options = None):
+        super().reset(seed=seed)
+        self.Engine.new_round()
+        return self.Engine.get_state(), {}
+    def step(self, action):
+        #input shold be of the type [left?, forward?, right?],
+        #which we transform to 0, 1, 2 and feed to the engine
+        action_dict = {
+            (1,0,0): 0,
+            (0,1,0): 1,
+            (0,0,1): 2,
+        }
+        direction = action_dict[tuple(action)]
+        observation = self.Engine.get_state()
+        has_eaten_appe = self.Engine.step(direction)
+        terminated = self.Engine.is_collision()
+        if (terminated):
+            reward = -10
+        elif (has_eaten_appe):
+            reward = 10
+        else:
+            reward = 0
+        truncated = False ##TO trzeba dopasować do reszty gry
+        info = {}
+        return observation, reward, terminated, truncated, info
+    
+    def render(self): #render does not handle timing?
+        if self.window == None:
+            self.window = pygame.display.set_mode((self.size*self.CELL, self.size * self.CELL))
+            self.clock = pygame.time.Clock()
+        self.window.fill("black")
+
+        for x, y in self.Engine.snake_body:
+            x -= 1
+            y -= 1
+            pygame.draw.rect(
+                self.window,
+                (0, 255, 0),
+                (x*self.CELL, y*self.CELL , self.CELL, self.CELL)
+            )
+        
+        x, y = self.Engine.x_food, self.Engine.y_food
+        x -= 1
+        y -= 1
+
+        pygame.draw.rect(self.window,
+                         (255,0,0),
+                         (x*self.CELL, y*self.CELL, self.CELL, self.CELL))
+        pygame.display.flip()
+    
+        
+    def close(self):
+        pygame.quit()
+
+'''
+while(True):
+    x = int(input())
+    if x == -1:
+        a = SnakeEnv("human", 10, 40)
+        b = a.Engine
+    elif x == -2:
+        #print("snake positions\n", b.snake_positions)
+        print("snake direction\n", b.snake_direction)
+        print("get states", b.get_state())
+    else:
+        b.step(x)
+        a.render()
+'''
+        

@@ -1,5 +1,7 @@
-lista = [1,2]
-def modify(x):
-    x[0] += 1
-modify(lista)
-print(lista[0])
+import numpy as np
+
+arr = [1]
+dict = {
+    "[1]":4
+}
+print(dict[str(arr)])
