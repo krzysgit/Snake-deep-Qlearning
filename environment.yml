@@ -9,3 +9,4 @@ dependencies:
     - pytorch
     - stable-baselines3
     - gymnasium
+    - ipython
