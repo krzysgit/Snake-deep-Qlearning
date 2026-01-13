@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import random
 from collections import namedtuple
+
 Transition = namedtuple(
 'Transition', ('state', 'action', 'reward',
 'next_state', 'done'))
@@ -17,9 +18,9 @@ class DQN:
         # Agent setup
         self.env = env
         self.df = discount_factor
-        self.epsilon = epsilon_greedy
-        self.epsilon_min = epsilon_min
-        self.epsilon_decay = epsilon_decay
+        self.epsilon = epsilon_greedy       # Initial exploration probability
+        self.epsilon_min = epsilon_min     # Minimum exploration probability
+        self.epsilon_decay = epsilon_decay  # Decay of exploration probability
         self.lr = learning_rate
         self.memory = deque(maxlen=max_memory_size)
         self.action_size = env.action_space.n
@@ -61,7 +62,9 @@ class DQN:
                 else:
                     pred = self.model(torch.tensor(next_s,
                                                    dtype=torch.float32))[0]
-                    target = r + self.df * pred.max()
+                    # Off-policy prediction
+                    target = r + self.df*pred.max()
+
             target_all = self.model(torch.tensor(s,
                                                  dtype=torch.float32))[0]
             target_all[a] = target

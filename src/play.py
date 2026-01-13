@@ -1,7 +1,7 @@
 from environment import SnakeEnv
 import pygame
 
-snakeEnv = SnakeEnv(render_mode="human")
+snakeEnv = SnakeEnv()
 snakeEnv.render()
 
 clock = pygame.time.Clock()
@@ -12,7 +12,6 @@ keyMoveDict = {
     pygame.K_UP: 1,
     pygame.K_LEFT: 0
 }
-
 
 running = True
 while running:
@@ -35,3 +34,7 @@ while running:
             print("INFO: Game over")
             running = False
 
+"""
+Run this file if you want to play manually.
+This hasn't been updated in a while so there are limited logging options.
+"""

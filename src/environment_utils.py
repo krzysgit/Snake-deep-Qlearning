@@ -8,7 +8,9 @@ def increment(x, y, size):
         y += 1
     return x, y
 
+# Render cells for the snake game
 def render_cells(snake_body, window, CELL, apple_position):
+    # BODY
     for x, y in snake_body:
         x -= 1
         y -= 1
@@ -17,15 +19,17 @@ def render_cells(snake_body, window, CELL, apple_position):
             (0, 255, 0),
             (x * CELL, y * CELL, CELL, CELL)
         )
+
+    # HEAD
     x,y = snake_body[0]
     x -= 1
     y -= 1
     pygame.draw.rect(
         window,
-        (0, 150, 0),
+        (131, 39, 222),
         (x * CELL, y * CELL, CELL, CELL)
     )
-
+    # APPLE
     x, y = apple_position
     x -= 1
     y -= 1
@@ -35,8 +39,8 @@ def render_cells(snake_body, window, CELL, apple_position):
     pygame.display.flip()
     pygame.event.pump()
 
-# This bfs assumes grid borders with 1s
-# Breath-First-Search
+
+# Breath-First-Search - algorithm for checking whether there is a path between start and end (avoiding 1s)
 def bfs(grid, start, end):
     increments = [(1,0),(0,1),(0,-1),(-1,0)]
     wave = {start}

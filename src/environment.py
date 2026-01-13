@@ -89,7 +89,7 @@ class SnakeGame:
                 x_current, y_current = increment(x_current, y_current, self.grid_size)               
 
     def get_state(self):
-        state_arr = np.zeros((14))
+        state_arr = np.zeros(11)
         # Direction (4)
         state_arr[self.snake_direction] = 1
         # Danger (3)
@@ -103,8 +103,6 @@ class SnakeGame:
         food_left = (x_head > x_food)
         food_right = (x_head < x_food)
         state_arr[7:11] = [food_up, food_down, food_right, food_left]
-        # Tail reachability (3)
-        state_arr[11:14]=[bfs(self.snake_positions, self.next_position(i), self.snake_body[-1] ) for i in range(3)]
         return state_arr
 
     def is_collision(self):
@@ -115,27 +113,25 @@ class SnakeGame:
 
 class SnakeEnv(gymnasium.Env):
     metadata = {
-        "render_modes": ["human", "none"],
-        "fps": ["30"],
+        "fps": ["30"]
     }
 
-    def __init__(self, render_mode, size=15, cell_size=40, max_steps=200):
+    def __init__(self, size=15, cell_size=40, max_steps=200):
         self.size = size
         self.CELL = cell_size
-        self.render_mode = render_mode
 
         self.Engine = SnakeGame(size)
         self.action_space = spaces.Discrete(3)
-        self.observation_space = spaces.MultiBinary(14)
-        #rendering configuration
+        self.observation_space = spaces.MultiBinary(11)
+
+        # Rendering configuration
         self.window = None
         self.clock = None
-        self.window_size = self.CELL * self.size
+
         # Additional metrics
-        self.steps_since_apple = 0
-        self.max_steps = max_steps
-        self.steps_total = 0
-        self.apples_eaten = 0
+        self.steps_since_apple = 0      # Step count since last apple
+        self.max_steps = max_steps      # Max steps between eating apples
+        self.apples_eaten = 0           # Total number of apples eaten
 
     
     def reset(self, seed = None, options = None):
@@ -143,7 +139,6 @@ class SnakeEnv(gymnasium.Env):
 
         # Additional metrics
         self.steps_since_apple = 0
-        self.steps_total = 0
         self.apples_eaten = 0
 
         self.Engine.new_round()
@@ -160,21 +155,18 @@ class SnakeEnv(gymnasium.Env):
             self.steps_since_apple = 0
             self.apples_eaten += 1
         else:
-            reward = 0.2
-
-        if not bfs(self.Engine.snake_positions, self.Engine.snake_body[0], self.Engine.snake_body[-1]):
-            reward += 1
+            reward = 0
 
         if terminated:
             reward = -10
 
         self.steps_since_apple += 1
-        self.steps_total += 1
 
         if self.steps_since_apple >= self.max_steps:
-            truncated = True
+            truncated = True    # True if "run out of time"
         else:
             truncated = False
+
         info = {
             "steps": self.steps_since_apple,
             "apples": self.apples_eaten
@@ -199,6 +191,7 @@ class SnakeEnv(gymnasium.Env):
     def get_positions(self):
         return self.Engine.snake_body.copy(), (self.Engine.x_food, self.Engine.y_food), self.CELL, self.size
 
+# Renders a custom board position
 def render_custom(snake_body, apple_position, CELL, size):
     window = pygame.display.set_mode((CELL*size, CELL*size))
     pygame.display.set_caption("Snake AI")
