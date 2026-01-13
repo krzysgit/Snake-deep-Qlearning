@@ -50,7 +50,7 @@ class SnakeGame:
         is_tail_there = (self.snake_body[-1] == (x, y))
         xy_danger = self.snake_positions[x, y]
         if is_head_there:
-            return (1 == (xy_danger - is_head_there))
+            return 1 == (xy_danger - is_head_there)
         elif is_tail_there:
             return False
         else:
@@ -92,7 +92,7 @@ class SnakeGame:
                 x_current, y_current = increment(x_current, y_current, self.grid_size)               
 
     def get_state(self):
-        #state is described by [is_down, is_left, is_up, is_right,
+        #state is described by [is_down, is_right, is_up, is_left,
         #                       danger_left?, danger_forward?, danger_right?,
         #                       food_up?, food_down?, food_right? food_left?]
         state_arr = np.zeros((11))
@@ -116,7 +116,7 @@ class SnakeEnv(gymnasium.Env):
         "fps": ["30"],
     }
 
-    def __init__(self, render_mode, size, cell_size):
+    def __init__(self, render_mode, size=15, cell_size=40, max_steps=40):
         self.size = size
         self.CELL = cell_size
         self.render_mode = render_mode
@@ -135,6 +135,9 @@ class SnakeEnv(gymnasium.Env):
         self.clock = None
         self.window_size = self.CELL * self.size
 
+        self.steps_since_apple = 0
+        self.max_steps = max_steps
+
     
     def reset(self, seed = None, options = None):
         super().reset(seed=seed)
@@ -143,7 +146,7 @@ class SnakeEnv(gymnasium.Env):
 
     
     def step(self, action):
-        #input shold be of the type [left?, forward?, right?],
+        #input shold be of the type [left, forward, right],
         #which we transform to 0, 1, 2 and feed to the engine
         action_dict = {
             (1,0,0): 0,
@@ -151,21 +154,26 @@ class SnakeEnv(gymnasium.Env):
             (0,0,1): 2,
         }
         direction = action_dict[tuple(action)]
-        observation = self.Engine.get_state()
         has_eaten_apple = self.Engine.step(direction)
+        observation = self.Engine.get_state()
         terminated = self.Engine.is_collision()
         if (terminated):
             reward = -10
         elif (has_eaten_apple):
             reward = 10
+            self.steps_since_apple = 0
         else:
             reward = 0
-        truncated = False ##TO trzeba dopasować do reszty gry
+        self.steps_since_apple += 1
+        if(self.steps_since_apple >= self.max_steps):
+            truncated = True
+        else:
+            truncated = False
         info = {}
         return observation, reward, terminated, truncated, info
 
     
-    def render(self): #render does not handle timing?
+    def render(self):
         if self.window is None:
             self.window = pygame.display.set_mode((self.size*self.CELL, self.size * self.CELL))
             pygame.display.set_caption("Snake AI")

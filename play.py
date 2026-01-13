@@ -1,10 +1,11 @@
 from environment import SnakeEnv
 import pygame
 
-snakeEnv = SnakeEnv(render_mode="human", size=10, cell_size=40)
+snakeEnv = SnakeEnv(render_mode="human")
 snakeEnv.render()
 
 clock = pygame.time.Clock()
+clock.tick(60)
 
 actionReverseDict = {
     0: (1, 0, 0),
@@ -33,10 +34,10 @@ while running:
 
     if next_action is not None:
         obs, reward, terminated, truncated, info = snakeEnv.step(actionReverseDict[next_action])
+        print(obs,"\n" ,reward,"\n", terminated,"\n", truncated,"\n", info)
         snakeEnv.render()
         pending_action = None
         if terminated or truncated:
             print("INFO: Game over")
             running = False
 
-    clock.tick(60)
