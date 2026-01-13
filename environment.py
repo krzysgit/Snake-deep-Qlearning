@@ -50,10 +50,13 @@ class SnakeGame:
         if x <= 0 or x >= w-1 or y <= 0 or y >= h-1:
             return True
         is_tail_there = (self.snake_body[-1] == (x,y))
+        is_head_there = (self.snake_body[0] == (x,y))
         if is_tail_there:
             return False
+        elif is_head_there:
+            return self.snake_positions[x,y] == 2
         else:
-            return self.snake_positions[x,y]==1
+            return self.snake_positions[x,y] == 1
 
     def step(self, action):
         #I assume that the action is encoded with left -> 0 forward -> 1 right -> 2
@@ -110,6 +113,9 @@ class SnakeGame:
     def is_collision(self):
         return self.is_danger(*self.snake_body[0])
 
+    def get_length(self):
+        return len(self.snake_body)
+
 class SnakeEnv(gymnasium.Env):
     metadata = {
         "render_modes": ["human", "none"],
@@ -134,9 +140,11 @@ class SnakeEnv(gymnasium.Env):
         self.window = None
         self.clock = None
         self.window_size = self.CELL * self.size
-
+        # Additional metrics
         self.steps_since_apple = 0
         self.max_steps = max_steps
+        self.steps_total = 0
+        self.apples_eaten = 0
 
     
     def reset(self, seed = None, options = None):
@@ -157,19 +165,26 @@ class SnakeEnv(gymnasium.Env):
         has_eaten_apple = self.Engine.step(direction)
         observation = self.Engine.get_state()
         terminated = self.Engine.is_collision()
-        if (terminated):
+        if terminated:
             reward = -10
-        elif (has_eaten_apple):
+        elif has_eaten_apple:
             reward = 10
             self.steps_since_apple = 0
+            self.apples_eaten += 1
         else:
             reward = 0
+
         self.steps_since_apple += 1
-        if(self.steps_since_apple >= self.max_steps):
+        self.steps_total += 1
+
+        if self.steps_since_apple >= self.max_steps:
             truncated = True
         else:
             truncated = False
-        info = {}
+        info = {
+            "steps": self.steps_since_apple,
+            "apples": self.apples_eaten
+        }
         return observation, reward, terminated, truncated, info
 
     
