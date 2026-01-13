@@ -10,5 +10,3 @@ dependencies:
     - stable-baselines3
     - gymnasium
     - ipython
-
-    - torch
