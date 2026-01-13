@@ -28,7 +28,7 @@ for i in range(init_replay_memory_size):
     else:
         state = next_state
 
-total_moves, losses, snake_max_lengths, death_states = [], [], [], []
+total_moves, losses, snake_max_lengths, death_states, truncated_array = [], [], [], [], []
 
 for e in range(EPISODES):
     state = env.reset()
@@ -47,12 +47,14 @@ for e in range(EPISODES):
             env.render()
         if done:
             death_states.append(env.get_positions())
+            truncated_array.append(truncated)
             total_moves.append(i)
             snake_max_lengths.append(info["apples"]+1)
-            print(f'Episode: {e}/{EPISODES}, Moves: {i}, Snake length: {info["apples"]+1}')
-            np.savez("performance/training_stats.npz",
+            print(f'Episode: {e}/{EPISODES}, Moves: {i}, Snake length: {info["apples"]+1}, Truncated: {truncated}')
+            np.savez("../performance/training_stats.npz",
                      total_moves=total_moves,
                      snake_max_lengths=snake_max_lengths,
+                     truncated_array=truncated_array,
                      death_states=np.array(death_states, dtype=object))
             break
         loss = agent.replay(batch_size)
