@@ -1,23 +1,17 @@
 from environment import SnakeEnv
 import pygame
 
-snakeEnv = SnakeEnv(render_mode="human", size=10, cell_size=40)
+snakeEnv = SnakeEnv()
 snakeEnv.render()
 
 clock = pygame.time.Clock()
-
-actionReverseDict = {
-    0: (1, 0, 0),
-    1: (0, 1, 0),
-    2: (0, 0, 1),
-}
+clock.tick(60)
 
 keyMoveDict = {
     pygame.K_RIGHT: 2,
     pygame.K_UP: 1,
     pygame.K_LEFT: 0
 }
-
 
 running = True
 while running:
@@ -32,11 +26,15 @@ while running:
                 next_action = keyMoveDict[event.key]
 
     if next_action is not None:
-        obs, reward, terminated, truncated, info = snakeEnv.step(actionReverseDict[next_action])
+        obs, reward, terminated, truncated, info = snakeEnv.step(next_action)
+        print(obs,"\n" ,reward,"\n", terminated,"\n", truncated,"\n", info)
         snakeEnv.render()
         pending_action = None
         if terminated or truncated:
             print("INFO: Game over")
             running = False
 
-    clock.tick(60)
+"""
+Run this file if you want to play manually.
+This hasn't been updated in a while so there are limited logging options.
+"""
