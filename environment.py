@@ -46,15 +46,14 @@ class SnakeGame:
     
 
     def is_danger(self, x, y):
-        is_head_there = (self.snake_body[0] == (x,y))
-        is_tail_there = (self.snake_body[-1] == (x, y))
-        xy_danger = self.snake_positions[x, y]
-        if is_head_there:
-            return 1 == (xy_danger - is_head_there)
-        elif is_tail_there:
+        w, h = self.snake_positions.shape
+        if x <= 0 or x >= w-1 or y <= 0 or y >= h-1:
+            return True
+        is_tail_there = (self.snake_body[-1] == (x,y))
+        if is_tail_there:
             return False
         else:
-            return xy_danger
+            return self.snake_positions[x,y]==1
 
     def step(self, action):
         #I assume that the action is encoded with left -> 0 forward -> 1 right -> 2
@@ -73,8 +72,8 @@ class SnakeGame:
             return False
 
     def spawn_food(self):
-        num_ocupied = np.sum(self.snake_positions)
-        where_apple = random.randint(1, self.grid_size**2 - num_ocupied)
+        num_occupied = np.sum(self.snake_positions)
+        where_apple = random.randint(1, self.grid_size**2 - num_occupied)
 
         zero_idx = 1
         x_current = 1
@@ -97,7 +96,8 @@ class SnakeGame:
         #                       food_up?, food_down?, food_right? food_left?]
         state_arr = np.zeros((11))
         state_arr[self.snake_direction] = 1
-        state_arr[4:7] = [self.is_danger(*self.next_position((self.snake_direction - i + 1) % 4)) for i in range(3)]
+        state_arr[4:7] = [self.is_danger(
+            *self.next_position((self.snake_direction - i + 1) % 4)) for i in range(3)]
         x_head,y_head = self.snake_body[0]
         x_food, y_food = self.x_food, self.y_food
         food_down = (y_head < y_food)
