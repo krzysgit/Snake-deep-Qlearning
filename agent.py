@@ -4,6 +4,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import random
+from collections import namedtuple
+Transition = namedtuple(
+'Transition', ('state', 'action', 'reward',
+'next_state', 'done'))
 
 class DQN:
     def __init__(self, env, discount_factor=0.95,
@@ -19,8 +23,9 @@ class DQN:
         self.lr = learning_rate
         self.memory = deque(maxlen=max_memory_size)
         self.action_size = env.action_space.n
+        self.state_size = env.observation_space.shape[0]
         # Torch NN setup
-        self.model = nn.Sequential(nn.Linear(env.observation_space.shape[0], 256),
+        self.model = nn.Sequential(nn.Linear(self.state_size, 256),
                                    nn.ReLU(),
                                    nn.Linear(256, 128),
                                    nn.ReLU(),

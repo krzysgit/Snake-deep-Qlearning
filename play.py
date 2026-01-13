@@ -7,12 +7,6 @@ snakeEnv.render()
 clock = pygame.time.Clock()
 clock.tick(60)
 
-actionReverseDict = {
-    0: (1, 0, 0),
-    1: (0, 1, 0),
-    2: (0, 0, 1),
-}
-
 keyMoveDict = {
     pygame.K_RIGHT: 2,
     pygame.K_UP: 1,
@@ -33,7 +27,7 @@ while running:
                 next_action = keyMoveDict[event.key]
 
     if next_action is not None:
-        obs, reward, terminated, truncated, info = snakeEnv.step(actionReverseDict[next_action])
+        obs, reward, terminated, truncated, info = snakeEnv.step(next_action)
         print(obs,"\n" ,reward,"\n", terminated,"\n", truncated,"\n", info)
         snakeEnv.render()
         pending_action = None

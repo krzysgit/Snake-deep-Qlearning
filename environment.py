@@ -122,20 +122,14 @@ class SnakeEnv(gymnasium.Env):
         "fps": ["30"],
     }
 
-    def __init__(self, render_mode, size=15, cell_size=40, max_steps=40):
+    def __init__(self, render_mode, size=15, cell_size=40, max_steps=200):
         self.size = size
         self.CELL = cell_size
         self.render_mode = render_mode
 
         self.Engine = SnakeGame(size)
         self.action_space = spaces.Discrete(3)
-        self.observation_space = spaces.Dict(
-            {
-                'direction': spaces.MultiBinary(4),
-                'danger': spaces.MultiBinary(3),
-                'food': spaces.MultiBinary(4),
-            }
-        )
+        self.observation_space = spaces.MultiBinary(11)
         #rendering configuration
         self.window = None
         self.clock = None
@@ -149,19 +143,17 @@ class SnakeEnv(gymnasium.Env):
     
     def reset(self, seed = None, options = None):
         super().reset(seed=seed)
+
+        # Additional metrics
+        self.steps_since_apple = 0
+        self.steps_total = 0
+        self.apples_eaten = 0
+
         self.Engine.new_round()
-        return self.Engine.get_state(), {}
+        return self.Engine.get_state()
 
     
-    def step(self, action):
-        #input shold be of the type [left, forward, right],
-        #which we transform to 0, 1, 2 and feed to the engine
-        action_dict = {
-            (1,0,0): 0,
-            (0,1,0): 1,
-            (0,0,1): 2,
-        }
-        direction = action_dict[tuple(action)]
+    def step(self, direction):
         has_eaten_apple = self.Engine.step(direction)
         observation = self.Engine.get_state()
         terminated = self.Engine.is_collision()
@@ -215,7 +207,32 @@ class SnakeEnv(gymnasium.Env):
         pygame.display.flip()
         pygame.event.pump()
     
-    
     def close(self):
         pygame.quit()
 
+    # Retrieves the current board state
+    def get_positions(self):
+        return self.Engine.snake_body, (self.Engine.x_food, self.Engine.y_food), self.CELL, self.size
+
+def render_custom(snake_body, apple_position, CELL, size):
+    window = pygame.display.set_mode((CELL*size, CELL*size))
+    pygame.display.set_caption("Snake AI")
+    window.fill("black")
+
+    for x, y in snake_body:
+        x -= 1
+        y -= 1
+        pygame.draw.rect(
+            window,
+            (0, 255, 0),
+            (x * CELL, y * CELL, CELL, CELL)
+        )
+
+    x, y = apple_position
+    x -= 1
+    y -= 1
+    pygame.draw.rect(window,
+                     (255, 0, 0),
+                     (x * CELL, y * CELL, CELL, CELL))
+    pygame.display.flip()
+    pygame.event.pump()
