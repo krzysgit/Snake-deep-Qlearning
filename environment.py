@@ -135,10 +135,13 @@ class SnakeEnv(gymnasium.Env):
         self.clock = None
         self.window_size = self.CELL * self.size
 
+    
     def reset(self, seed = None, options = None):
         super().reset(seed=seed)
         self.Engine.new_round()
         return self.Engine.get_state(), {}
+
+    
     def step(self, action):
         #input shold be of the type [left?, forward?, right?],
         #which we transform to 0, 1, 2 and feed to the engine
@@ -149,22 +152,25 @@ class SnakeEnv(gymnasium.Env):
         }
         direction = action_dict[tuple(action)]
         observation = self.Engine.get_state()
-        has_eaten_appe = self.Engine.step(direction)
+        has_eaten_apple = self.Engine.step(direction)
         terminated = self.Engine.is_collision()
         if (terminated):
             reward = -10
-        elif (has_eaten_appe):
+        elif (has_eaten_apple):
             reward = 10
         else:
             reward = 0
         truncated = False ##TO trzeba dopasować do reszty gry
         info = {}
         return observation, reward, terminated, truncated, info
+
     
     def render(self): #render does not handle timing?
-        if self.window == None:
+        if self.window is None:
             self.window = pygame.display.set_mode((self.size*self.CELL, self.size * self.CELL))
+            pygame.display.set_caption("Snake AI")
             self.clock = pygame.time.Clock()
+
         self.window.fill("black")
 
         for x, y in self.Engine.snake_body:
@@ -184,23 +190,9 @@ class SnakeEnv(gymnasium.Env):
                          (255,0,0),
                          (x*self.CELL, y*self.CELL, self.CELL, self.CELL))
         pygame.display.flip()
+        pygame.event.pump()
     
-        
+    
     def close(self):
         pygame.quit()
 
-'''
-while(True):
-    x = int(input())
-    if x == -1:
-        a = SnakeEnv("human", 10, 40)
-        b = a.Engine
-    elif x == -2:
-        #print("snake positions\n", b.snake_positions)
-        print("snake direction\n", b.snake_direction)
-        print("get states", b.get_state())
-    else:
-        b.step(x)
-        a.render()
-'''
-        
