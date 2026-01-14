@@ -1,5 +1,5 @@
 import torch
-
+import pygame
 from environment import SnakeEnv
 from agent import DQN
 import numpy as np
@@ -13,7 +13,7 @@ render_rate = 1             # The rate of rendering games to watch
 
 # Setup
 env =  SnakeEnv()
-agent = DQN(env)
+agent = DQN(env, double_dqn=True)
 state = env.reset()
 state = np.reshape(state, [1, agent.state_size])
 
@@ -40,8 +40,9 @@ for e in range(episodes):
     if e % render_rate == 0:
         env.render()
     state = np.reshape(state, [1, agent.state_size])
-    # Max moves per episode, increase if needed
-    for i in range(500):
+    i = 0
+    while True:
+        i += 1
         action = agent.choose_action(state)
         next_state, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
@@ -51,6 +52,7 @@ for e in range(episodes):
         state = next_state
         if e % render_rate == 0:
             env.render()
+
         if done:
             # Updating metrics
             death_states.append(env.get_positions())
@@ -60,15 +62,20 @@ for e in range(episodes):
 
             print(f'Episode: {e}/{episodes}, Moves: {i}, Snake length: {info["apples"]+1}, Truncated: {truncated}')
 
+            if info["apples"]>20:
+                pygame.time.delay(2000)  # 2000 ms
+                pygame.event.pump()  # keeps OS event queue from freezing (optional but good)
+
             # Saving metrics
             np.savez("../performance/training_stats.npz",
                      total_moves=total_moves,
                      snake_max_lengths=snake_max_lengths,
                      truncated_array=truncated_array,
-                     death_states=np.array(death_states, dtype=object))
+                     death_states=np.array(death_states, dtype=object),
+                     losses=np.array(losses, dtype=object))
+
+            # Save the model if it finished training
+            torch.save(agent.online_model.state_dict(), "../models/dqn_2.pt")
             break
         loss = agent.replay(batch_size)
         losses.append(loss)
-
-# Save the model if it finished training
-torch.save(agent.model.state_dict(), "dqn_1.pt")
