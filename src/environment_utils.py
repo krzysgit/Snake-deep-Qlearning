@@ -63,3 +63,15 @@ def bfs(grid, start, end):
             return True
         elif not wave:
             return False
+
+def get_area(center, radius, grid):
+    cells = []
+    for x in range(-radius, radius + 1):
+        for y in range(-radius, radius + 1):
+            cell = (center[0] + x, center[1] + y)
+            if 0 <= cell[0] < grid.shape[0] and 0 <= cell[1] < grid.shape[1]:
+                if grid[cell]==0:
+                    cells.append("0")
+                    continue
+            cells.append("1")
+    return cells

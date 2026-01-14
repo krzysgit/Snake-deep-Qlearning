@@ -6,7 +6,7 @@ from gymnasium import spaces
 from collections import deque
 from environment_utils import increment
 from environment_utils import render_cells
-from environment_utils import bfs
+from environment_utils import get_area
 
 class SnakeGame:
     def __init__(self, grid_size):
@@ -54,7 +54,7 @@ class SnakeGame:
             return self.snake_positions[x,y] == 1
 
     def step(self, action):
-        #I assume that the action is encoded with left -> 0 forward -> 1 right -> 2
+        # I assume that the action is encoded with left -> 0 forward -> 1 right -> 2
         self.snake_direction = (self.snake_direction - action + 1) % 4
         x_head, y_head = self.next_position(self.snake_direction)
         if x_head == self.x_food and y_head == self.y_food:
@@ -92,17 +92,17 @@ class SnakeGame:
         state_arr = np.zeros(11)
         # Direction (4)
         state_arr[self.snake_direction] = 1
-        # Danger (3)
-        state_arr[4:7] = [self.is_danger(
-            *self.next_position((self.snake_direction - i + 1) % 4)) for i in range(3)]
         # Food direction (4)
-        x_head,y_head = self.snake_body[0]
+        x_head, y_head = self.snake_body[0]
         x_food, y_food = self.x_food, self.y_food
         food_down = (y_head < y_food)
         food_up = (y_head > y_food)
         food_left = (x_head > x_food)
         food_right = (x_head < x_food)
-        state_arr[7:11] = [food_up, food_down, food_right, food_left]
+        state_arr[4:8] = [food_up, food_down, food_right, food_left]
+        # Danger (3)
+        state_arr[8:11] = [self.is_danger(*self.next_position((self.snake_direction - i + 1) % 4)) for i in range(3)]
+        #state_arr[8:17] = get_area(self.next_position(self.snake_direction),1,self.snake_positions)
         return state_arr
 
     def is_collision(self):
@@ -158,7 +158,7 @@ class SnakeEnv(gymnasium.Env):
             reward = 0
 
         if terminated:
-            reward = -10
+            reward = -20
 
         self.steps_since_apple += 1
 
