@@ -4,14 +4,9 @@ import numpy as np
 import gymnasium
 from gymnasium import spaces
 from collections import deque
-
-def increment(x, y, size):
-    if x < size:
-        x += 1
-    elif x == size:
-        x = 1
-        y += 1
-    return x, y
+from environment_utils import increment
+from environment_utils import render_cells
+from environment_utils import get_area
 
 class SnakeGame:
     def __init__(self, grid_size):
@@ -46,18 +41,20 @@ class SnakeGame:
     
 
     def is_danger(self, x, y):
+        w, h = self.snake_positions.shape
+        if x <= 0 or x >= w-1 or y <= 0 or y >= h-1:
+            return True
+        is_tail_there = (self.snake_body[-1] == (x,y))
         is_head_there = (self.snake_body[0] == (x,y))
-        is_tail_there = (self.snake_body[-1] == (x, y))
-        xy_danger = self.snake_positions[x, y]
-        if is_head_there:
-            return (1 == (xy_danger - is_head_there))
-        elif is_tail_there:
+        if is_tail_there:
             return False
+        elif is_head_there:
+            return self.snake_positions[x,y] == 2
         else:
-            return xy_danger
+            return self.snake_positions[x,y] == 1
 
     def step(self, action):
-        #I assume that the action is encoded with left -> 0 forward -> 1 right -> 2
+        # I assume that the action is encoded with left -> 0 forward -> 1 right -> 2
         self.snake_direction = (self.snake_direction - action + 1) % 4
         x_head, y_head = self.next_position(self.snake_direction)
         if x_head == self.x_food and y_head == self.y_food:
@@ -73,8 +70,8 @@ class SnakeGame:
             return False
 
     def spawn_food(self):
-        num_ocupied = np.sum(self.snake_positions)
-        where_apple = random.randint(1, self.grid_size**2 - num_ocupied)
+        num_occupied = np.sum(self.snake_positions)
+        where_apple = random.randint(1, self.grid_size**2 - num_occupied)
 
         zero_idx = 1
         x_current = 1
@@ -92,115 +89,112 @@ class SnakeGame:
                 x_current, y_current = increment(x_current, y_current, self.grid_size)               
 
     def get_state(self):
-        #state is described by [is_down, is_left, is_up, is_right,
-        #                       danger_left?, danger_forward?, danger_right?,
-        #                       food_up?, food_down?, food_right? food_left?]
-        state_arr = np.zeros((11))
+        state_arr = np.zeros(11)
+        # Direction (4)
         state_arr[self.snake_direction] = 1
-        state_arr[4:7] = [self.is_danger(*self.next_position((self.snake_direction - i + 1) % 4)) for i in range(3)]
-        x_head,y_head = self.snake_body[0]
+        # Food direction (4)
+        x_head, y_head = self.snake_body[0]
         x_food, y_food = self.x_food, self.y_food
         food_down = (y_head < y_food)
         food_up = (y_head > y_food)
         food_left = (x_head > x_food)
         food_right = (x_head < x_food)
-        state_arr[7:11] = [food_up, food_down, food_right, food_left]
+        state_arr[4:8] = [food_up, food_down, food_right, food_left]
+        # Danger (3)
+        state_arr[8:11] = [self.is_danger(*self.next_position((self.snake_direction - i + 1) % 4)) for i in range(3)]
+        #state_arr[8:17] = get_area(self.next_position(self.snake_direction),1,self.snake_positions)
         return state_arr
 
     def is_collision(self):
         return self.is_danger(*self.snake_body[0])
 
+    def get_length(self):
+        return len(self.snake_body)
+
 class SnakeEnv(gymnasium.Env):
     metadata = {
-        "render_modes": ["human", "none"],
-        "fps": ["30"],
+        "fps": ["30"]
     }
 
-    def __init__(self, render_mode, size, cell_size):
+    def __init__(self, size=15, cell_size=40, max_steps=200):
         self.size = size
         self.CELL = cell_size
-        self.render_mode = render_mode
 
         self.Engine = SnakeGame(size)
         self.action_space = spaces.Discrete(3)
-        self.observation_space = spaces.Dict(
-            {
-                'direction': spaces.MultiBinary(4),
-                'danger': spaces.MultiBinary(3),
-                'food': spaces.MultiBinary(4),
-            }
-        )
-        #rendering configuration
+        self.observation_space = spaces.MultiBinary(11)
+
+        # Rendering configuration
         self.window = None
         self.clock = None
-        self.window_size = self.CELL * self.size
 
+        # Additional metrics
+        self.steps_since_apple = 0      # Step count since last apple
+        self.max_steps = max_steps      # Max steps between eating apples
+        self.apples_eaten = 0           # Total number of apples eaten
+
+    
     def reset(self, seed = None, options = None):
         super().reset(seed=seed)
+
+        # Additional metrics
+        self.steps_since_apple = 0
+        self.apples_eaten = 0
+
         self.Engine.new_round()
-        return self.Engine.get_state(), {}
-    def step(self, action):
-        #input shold be of the type [left?, forward?, right?],
-        #which we transform to 0, 1, 2 and feed to the engine
-        action_dict = {
-            (1,0,0): 0,
-            (0,1,0): 1,
-            (0,0,1): 2,
-        }
-        direction = action_dict[tuple(action)]
+        return self.Engine.get_state()
+
+    
+    def step(self, direction):
+        has_eaten_apple = self.Engine.step(direction)
         observation = self.Engine.get_state()
-        has_eaten_appe = self.Engine.step(direction)
         terminated = self.Engine.is_collision()
-        if (terminated):
-            reward = -10
-        elif (has_eaten_appe):
+
+        if has_eaten_apple:
             reward = 10
+            self.steps_since_apple = 0
+            self.apples_eaten += 1
         else:
             reward = 0
-        truncated = False ##TO trzeba dopasować do reszty gry
-        info = {}
+
+        if terminated:
+            reward = -20
+
+        self.steps_since_apple += 1
+
+        if self.steps_since_apple >= self.max_steps:
+            truncated = True    # True if "run out of time"
+        else:
+            truncated = False
+
+        info = {
+            "steps": self.steps_since_apple,
+            "apples": self.apples_eaten
+        }
         return observation, reward, terminated, truncated, info
+
     
-    def render(self): #render does not handle timing?
-        if self.window == None:
+    def render(self):
+        if self.window is None:
             self.window = pygame.display.set_mode((self.size*self.CELL, self.size * self.CELL))
+            pygame.display.set_caption("Snake AI")
             self.clock = pygame.time.Clock()
+
         self.window.fill("black")
 
-        for x, y in self.Engine.snake_body:
-            x -= 1
-            y -= 1
-            pygame.draw.rect(
-                self.window,
-                (0, 255, 0),
-                (x*self.CELL, y*self.CELL , self.CELL, self.CELL)
-            )
-        
-        x, y = self.Engine.x_food, self.Engine.y_food
-        x -= 1
-        y -= 1
-
-        pygame.draw.rect(self.window,
-                         (255,0,0),
-                         (x*self.CELL, y*self.CELL, self.CELL, self.CELL))
-        pygame.display.flip()
+        render_cells(self.Engine.snake_body, self.window, self.CELL, (self.Engine.x_food, self.Engine.y_food))
     
-        
     def close(self):
         pygame.quit()
 
-'''
-while(True):
-    x = int(input())
-    if x == -1:
-        a = SnakeEnv("human", 10, 40)
-        b = a.Engine
-    elif x == -2:
-        #print("snake positions\n", b.snake_positions)
-        print("snake direction\n", b.snake_direction)
-        print("get states", b.get_state())
-    else:
-        b.step(x)
-        a.render()
-'''
-        
+    # Retrieves the current board state
+    def get_positions(self):
+        return self.Engine.snake_body.copy(), (self.Engine.x_food, self.Engine.y_food), self.CELL, self.size
+
+# Renders a custom board position
+def render_custom(snake_body, apple_position, CELL, size):
+    window = pygame.display.set_mode((CELL*size, CELL*size))
+    pygame.display.set_caption("Snake AI")
+    window.fill("black")
+
+    render_cells(snake_body, window, CELL, apple_position)
